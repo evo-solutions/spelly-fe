@@ -191,6 +191,8 @@ export function useMicrophone() {
       rec.interimResults = true;
       rec.lang = "en-US";
       rec.onresult = (ev) => {
+        if (recognitionRef.current !== rec) return;
+
         let fullText = "";
         for (let i = 0; i < ev.results.length; i++) {
           fullText += `${ev.results[i][0].transcript} `;
@@ -237,6 +239,8 @@ export function useMicrophone() {
 
   // Start recording voice
   const startRecording = useCallback(async () => {
+    setTranscript("");
+
     // Ensure microphone is initialized
     const microphoneReady = await initMicrophone();
     if (audioCtxRef.current?.state === "suspended") {

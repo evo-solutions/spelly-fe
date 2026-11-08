@@ -11,9 +11,6 @@ export function AnalysisCard({
   isAllCorrect,
   hasFinishedSpeaking,
   onWordClick,
-  aiStatus = "idle",
-  aiTranscript,
-  aiError,
 }: {
   spokenWords: SpokenWordItem[];
   totalTarget?: number;
@@ -27,9 +24,6 @@ export function AnalysisCard({
   onStartRecording?: () => void;
   onStopAndReplay?: () => void;
   onWordClick?: (word: string) => void;
-  aiStatus?: "idle" | "checking" | "done" | "error";
-  aiTranscript?: string | null;
-  aiError?: string;
 }) {
   return (
     <div className="w-full card-glass-glow rounded-xl sm:rounded-2xl border border-indigo-500/25 hover:border-indigo-400/40 p-5 sm:p-7 shadow-xl flex flex-col gap-4 transition-colors relative">
@@ -96,24 +90,6 @@ export function AnalysisCard({
           </div>
         )}
       </div>
-      {aiStatus === "checking" && (
-        <p role="status" className="text-sm text-indigo-200">
-          Đang dùng OpenAI kiểm tra toàn bộ câu nói...
-        </p>
-      )}
-      {aiStatus === "done" && (
-        <p className="text-sm text-slate-300">
-          OpenAI nghe được:{" "}
-          <span className="text-white">
-            {aiTranscript || "(không nhận ra lời nói)"}
-          </span>
-        </p>
-      )}
-      {aiStatus === "error" && (
-        <p role="alert" className="text-sm text-rose-300">
-          Không thể kiểm tra bằng OpenAI: {aiError}
-        </p>
-      )}
     </div>
   );
 }

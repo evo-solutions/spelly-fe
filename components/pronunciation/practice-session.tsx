@@ -285,9 +285,6 @@ function PracticeSessionPlayer({
   onLoadMoreConversations: () => void;
 }) {
   const [lessonIndex, setLessonIndex] = useState(0);
-  const [aiTranscript, setAiTranscript] = useState<string | null>(null);
-  const [aiStatus, setAiStatus] = useState<"idle" | "checking" | "done" | "error">("idle");
-  const [aiError, setAiError] = useState("");
   const [hasPlayedCurrent, setHasPlayedCurrent] = useState(false);
 
   const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -297,22 +294,14 @@ function PracticeSessionPlayer({
     clearAttempt,
     isRecording,
     playOriginalAndRecord,
-    recordedAudio,
     stopRecording,
     transcript: liveTranscript,
   } = mic;
   const lesson = lessons[lessonIndex] ?? lessons[0]!;
 
-  const clearAiCheck = useCallback(() => {
-    setAiTranscript(null);
-    setAiStatus("idle");
-    setAiError("");
-  }, []);
-
-  const transcript = aiStatus === "done" ? aiTranscript ?? "" : liveTranscript;
   const evaluation = useMemo(() => {
-    return evaluateSpokenWords(transcript, lesson.words);
-  }, [lesson.words, transcript]);
+    return evaluateSpokenWords(liveTranscript, lesson.words);
+  }, [lesson.words, liveTranscript]);
 
   // Derived state: Xác định khi nào đã hoàn thành lượt nói (đã đọc đủ từ hoặc micro đã tắt sau khi nói)
   const hasFinishedSpeaking =
@@ -327,7 +316,6 @@ function PracticeSessionPlayer({
       advanceTimerRef.current = null;
     }
     clearAttempt();
-    clearAiCheck();
     setHasPlayedCurrent(true);
     const nextIndex = (lessonIndex + 1) % lessons.length;
     setLessonIndex(nextIndex);
@@ -337,7 +325,7 @@ function PracticeSessionPlayer({
       timeRange: nextLesson.timeRange,
       role: nextLesson.role,
     });
-  }, [clearAiCheck, clearAttempt, lessonIndex, lessons, playOriginalAndRecord]);
+  }, [clearAttempt, lessonIndex, lessons, playOriginalAndRecord]);
 
   // Previous turn in conversation
   const handlePrev = useCallback(() => {
@@ -346,7 +334,6 @@ function PracticeSessionPlayer({
       advanceTimerRef.current = null;
     }
     clearAttempt();
-    clearAiCheck();
     setHasPlayedCurrent(true);
     const prevIndex = (lessonIndex - 1 + lessons.length) % lessons.length;
     setLessonIndex(prevIndex);
@@ -356,7 +343,7 @@ function PracticeSessionPlayer({
       timeRange: prevLesson.timeRange,
       role: prevLesson.role,
     });
-  }, [clearAiCheck, clearAttempt, lessonIndex, lessons, playOriginalAndRecord]);
+  }, [clearAttempt, lessonIndex, lessons, playOriginalAndRecord]);
 
   // Replay original audio of current turn
   const handleReplay = useCallback(() => {
@@ -365,14 +352,13 @@ function PracticeSessionPlayer({
       advanceTimerRef.current = null;
     }
     clearAttempt();
-    clearAiCheck();
     setHasPlayedCurrent(true);
     playOriginalAndRecord(lesson.sentence, {
       audioFile: lesson.audioFile,
       timeRange: lesson.timeRange,
       role: lesson.role,
     });
-  }, [clearAiCheck, clearAttempt, lesson, playOriginalAndRecord]);
+  }, [clearAttempt, lesson, playOriginalAndRecord]);
 
   // Stop recording and replay sample to retry
   const handleStopAndReplay = useCallback(() => {
@@ -382,74 +368,23 @@ function PracticeSessionPlayer({
     }
     stopRecording();
     clearAttempt();
-    clearAiCheck();
     setHasPlayedCurrent(true);
     playOriginalAndRecord(lesson.sentence, {
       audioFile: lesson.audioFile,
       timeRange: lesson.timeRange,
       role: lesson.role,
     });
-  }, [clearAiCheck, clearAttempt, lesson, playOriginalAndRecord, stopRecording]);
+  }, [clearAttempt, lesson, playOriginalAndRecord, stopRecording]);
 
   useEffect(() => {
-    const audio = recordedAudio;
-    if (!audio || isRecording) return;
-
-    const controller = new AbortController();
-    const checkPronunciation = async () => {
-      setAiStatus("checking");
-      setAiTranscript(null);
-      setAiError("");
-
-      const formData = new FormData();
-      const extension = audio.type.includes("mp4") ? "mp4" : "webm";
-      formData.set("audio", audio, `recording.${extension}`);
-
-      try {
-        const response = await fetch("/api/pronunciation/check", {
-          method: "POST",
-          body: formData,
-          signal: controller.signal,
-        });
-        const result: unknown = await response.json();
-        if (
-          typeof result !== "object" ||
-          result === null
-        ) {
-          throw new Error("OpenAI trả về kết quả không hợp lệ.");
-        }
-        if (!response.ok) {
-          const message = "error" in result && typeof result.error === "string"
-            ? result.error
-            : "Không thể kiểm tra bản ghi bằng OpenAI.";
-          throw new Error(message);
-        }
-        if (!("transcript" in result) || typeof result.transcript !== "string") {
-          throw new Error("OpenAI trả về kết quả nhận dạng không hợp lệ.");
-        }
-
-        setAiTranscript(result.transcript);
-        setAiStatus("done");
-      } catch (error) {
-        if (controller.signal.aborted) return;
-        setAiStatus("error");
-        setAiError(error instanceof Error ? error.message : "Không thể kiểm tra bản ghi.");
-      }
-    };
-
-    void checkPronunciation();
-    return () => controller.abort();
-  }, [isRecording, recordedAudio]);
-
-  useEffect(() => {
-    if (isRecording || aiStatus !== "done" || !evaluation.isAllCorrect) return;
+    if (isRecording || !evaluation.isAllCorrect) return;
     if (advanceTimerRef.current) return;
 
     advanceTimerRef.current = setTimeout(() => {
       advanceTimerRef.current = null;
       handleNext();
     }, 1300);
-  }, [aiStatus, evaluation.isAllCorrect, handleNext, isRecording]);
+  }, [evaluation.isAllCorrect, handleNext, isRecording]);
 
   // Cleanup timer on unmount
   useEffect(() => {
@@ -522,9 +457,6 @@ function PracticeSessionPlayer({
         onStartRecording={mic.startRecording}
         onStopAndReplay={handleStopAndReplay}
         onWordClick={handleWordClick}
-        aiStatus={aiStatus}
-        aiTranscript={aiTranscript}
-        aiError={aiError}
       />
 
       <HintCard lesson={lesson} />

@@ -16,9 +16,9 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-## AI speech checking
+## Speech recognition
 
-Set `OPENAI_API_KEY` in `.env` (or the server environment) to enable OpenAI transcription. After you finish speaking, the app sends the audio recording and the complete reference sentence to OpenAI for transcription. The API key stays on the server.
+Pronunciation practice currently uses the browser's built-in speech-recognition API for live captions and word-by-word comparison. OpenAI transcription is temporarily disabled.
 
 ## Local PostgreSQL connection
 
